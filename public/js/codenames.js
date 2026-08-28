@@ -18,6 +18,7 @@
     const me = room.players.find(p => p.id === window.gameSocket.id());
     const isMyTurn = state && me && me.team === state.turn;
     const canGiveClue = state && isMyTurn && me.role === 'spymaster' && state.phase === 'playing' && !state.clue;
+    const isGameOver = state && state.phase === 'ended';
 
     const redPlayers = room.players.filter(p => p.team === 'red');
     const bluePlayers = room.players.filter(p => p.team === 'blue');
@@ -55,7 +56,14 @@
               </div>
             </div>
 
+            <!-- BOUTON ÉQUIPES ALÉATOIRES (HÔTE) -->
+            ${isHost && (!state || isGameOver) ? '<button class="secondary" id="randomize-teams">🎲 Équipes Aléatoires</button>' : ''}
+
+            <!-- BOUTON DÉMARRER (HÔTE - AVANT JEU) -->
             ${isHost && !state ? '<button class="primary" id="start">Lancer la partie</button>' : ''}
+
+            <!-- BOUTON REJOUER (HÔTE - FIN DE PARTIE) -->
+            ${isHost && isGameOver ? '<button class="primary" id="restart">🔄 Rejouer une partie</button>' : ''}
 
             ${canGiveClue ? `
               <form id="clue-form" class="clue-form">
@@ -77,53 +85,53 @@
     bindGameEvents(me);
   }
 
-function renderBoard(state, me) {
-  const turnName = state.turn === 'red' ? 'Équipe Rouge' : 'Équipe Bleue';
-  const isMyTurn = me && me.team === state.turn;
-  const canGuess = isMyTurn && me.role === 'operative' && state.clue && state.phase === 'playing';
-  const isSpymaster = me && me.role === 'spymaster';
+  function renderBoard(state, me) {
+    const turnName = state.turn === 'red' ? 'Équipe Rouge' : 'Équipe Bleue';
+    const isMyTurn = me && me.team === state.turn;
+    const canGuess = isMyTurn && me.role === 'operative' && state.clue && state.phase === 'playing';
+    const isSpymaster = me && me.role === 'spymaster';
 
-  return `
-    <div class="board-head">
-      <div>
-        <p class="eyebrow">${state.phase === 'ended' ? 'PARTIE TERMINEE' : 'TOUR EN COURS'}</p>
-        <h2>${state.phase === 'ended' ? 'Partie Terminée' : turnName}</h2>
+    return `
+      <div class="board-head">
+        <div>
+          <p class="eyebrow">${state.phase === 'ended' ? 'PARTIE TERMINEE' : 'TOUR EN COURS'}</p>
+          <h2>${state.phase === 'ended' ? `Victoire : Équipe ${state.winner === 'red' ? 'Rouge' : 'Bleue'} !` : turnName}</h2>
+        </div>
+        <div class="scores">
+          <span class="red-score">ROUGE <strong>${state.scores.red}/8</strong></span>
+          <span class="blue-score">BLEU <strong>${state.scores.blue}/7</strong></span>
+        </div>
       </div>
-      <div class="scores">
-        <span class="red-score">ROUGE <strong>${state.scores.red}/8</strong></span>
-        <span class="blue-score">BLEU <strong>${state.scores.blue}/7</strong></span>
-      </div>
-    </div>
 
-    ${state.clue ? `
-      <div class="clue">
-        <span>INDICE</span>
-        <strong>${escapeHtml(state.clue)}</strong>
-        <small>${state.guessesLeft} choix restants</small>
-        ${canGuess ? '<button id="pass-btn" class="secondary pass-btn">Finir le tour</button>' : ''}
-      </div>
-    ` : '<div class="clue muted">En attente de l\'indice du Maître-Espion...</div>'}
+      ${state.clue ? `
+        <div class="clue">
+          <span>INDICE</span>
+          <strong>${escapeHtml(state.clue)}</strong>
+          <small>${state.guessesLeft-1} choix restants + 1 Bonus</small>
+          ${canGuess ? '<button id="pass-btn" class="secondary pass-btn">Finir le tour</button>' : ''}
+        </div>
+      ` : '<div class="clue muted">En attente de l\'indice du Maître-Espion...</div>'}
 
-    <div class="cards">
-      ${state.cards.map(card => {
-        const isRevealed = card.revealed;
-        const role = card.role || '';
-        const isDisabled = !canGuess || isRevealed || state.phase === 'ended';
-        const previewClass = (!isRevealed && (isSpymaster || state.phase === 'ended')) ? `spymaster-preview ${role}` : '';
+      <div class="cards">
+        ${state.cards.map(card => {
+          const isRevealed = card.revealed;
+          const role = card.role || '';
+          const isDisabled = !canGuess || isRevealed || state.phase === 'ended';
+          const previewClass = (!isRevealed && (isSpymaster || state.phase === 'ended')) ? `spymaster-preview ${role}` : '';
 
-        return `
-          <button class="card ${isRevealed ? `revealed ${role}` : ''} ${previewClass}" 
-                  data-card="${card.id}" 
-                  ${isDisabled ? 'disabled' : ''}>
-            <div class="card-image-wrapper">
-              <img src="${card.icon}" alt="${escapeHtml(card.label)}" class="card-img" />
-            </div>
-            <span>${escapeHtml(card.label)}</span>
-            ${isRevealed && role ? `<i>${role === 'assassin' ? 'ASSASSIN' : role.toUpperCase()}</i>` : ''}
-          </button>`;
-      }).join('')}
-    </div>`;
-}
+          return `
+            <button class="card ${isRevealed ? `revealed ${role}` : ''} ${previewClass}" 
+                    data-card="${card.id}" 
+                    ${isDisabled ? 'disabled' : ''}>
+              <div class="card-image-wrapper">
+                <img src="${card.icon}" alt="${escapeHtml(card.label)}" class="card-img" />
+              </div>
+              <span>${escapeHtml(card.label)}</span>
+              ${isRevealed && role ? `<i>${role === 'assassin' ? 'ASSASSIN' : role.toUpperCase()}</i>` : ''}
+            </button>`;
+        }).join('')}
+      </div>`;
+  }
 
   function showLobby() {
     app.innerHTML = `<main class="shell lobby"><button class="back" id="home">← Retour</button><p class="eyebrow">CODENAMES IMAGE</p><h1>Rejoindre la table</h1><p class="lead">Créez un salon ou entrez le code partagé par votre équipe.</p><section class="lobby-grid"><form id="create-form"><h2>Créer un salon</h2><input id="create-name" placeholder="Votre prénom" maxlength="20" required><button class="primary">Créer le salon</button></form><form id="join-form"><h2>Rejoindre un salon</h2><input id="join-name" placeholder="Votre prénom" maxlength="20" required><input id="join-code" placeholder="CODE DU SALON" maxlength="4" required><button class="secondary">Rejoindre</button></form></section><p id="error" class="error"></p></main>`;
@@ -132,9 +140,16 @@ function renderBoard(state, me) {
     document.querySelector('#join-form').onsubmit = event => { event.preventDefault(); emit('room:join', { name: document.querySelector('#join-name').value, code: document.querySelector('#join-code').value }); };
   }
 
-function bindGameEvents(me) {
-    document.querySelector('#leave')?.addEventListener('click', () => { room = null; render(); });
+  function bindGameEvents(me) {
+    document.querySelector('#leave')?.addEventListener('click', () => { 
+      if (room) emit('room:leave', room.code);
+      room = null; 
+      render(); 
+    });
+
     document.querySelector('#start')?.addEventListener('click', () => emit('game:start', room.code));
+    document.querySelector('#restart')?.addEventListener('click', () => emit('game:start', room.code));
+    document.querySelector('#randomize-teams')?.addEventListener('click', () => emit('teams:randomize', room.code));
 
     document.querySelectorAll('.btn-team').forEach(btn => {
       btn.addEventListener('click', () => {

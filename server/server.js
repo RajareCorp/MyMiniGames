@@ -9,8 +9,8 @@ const codenames = require('./games/codenames');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  pingTimeout: 10000,    // Attend seulement 10s avant de déclarer le socket mort
-  pingInterval: 10000   // Envoie un ping toutes les 10s
+  pingTimeout: 5000,    // Détection rapide des déconnexions (5s)
+  pingInterval: 10000
 });
 const port = process.env.PORT || 4000;
 
@@ -42,6 +42,14 @@ io.on('connection', socket => {
     sendRoom(room);
   });
 
+  socket.on('room:leave', (code) => {
+    const room = rooms.getRoom(code);
+    if (!room) return;
+    socket.leave(room.code);
+    rooms.removePlayer(room, socket.id);
+    if (rooms.getRoom(room.code)) sendRoom(room);
+  });
+
   socket.on('player:selectTeam', ({ code, team, role } = {}) => {
     const room = rooms.getRoom(code);
     if (!room) return;
@@ -50,9 +58,17 @@ io.on('connection', socket => {
     }
   });
 
+  socket.on('teams:randomize', (code) => {
+    const room = rooms.getRoom(code);
+    if (!room || room.hostId !== socket.id) return;
+    rooms.randomizeTeams(room);
+    sendRoom(room);
+  });
+
   socket.on('game:start', code => {
     const room = rooms.getRoom(code);
     if (!room || room.hostId !== socket.id) return;
+    // Crée une nouvelle partie (sert aussi pour rejouer)
     room.state = codenames.createGame();
     sendRoom(room);
   });
@@ -73,13 +89,6 @@ io.on('connection', socket => {
     sendRoom(room);
   });
 
-  socket.on('disconnect', () => {
-    const room = rooms.findPlayerRoom(socket.id);
-    if (!room) return;
-    rooms.removePlayer(room, socket.id);
-    if (rooms.getRoom(room.code)) sendRoom(room);
-  });
-
   socket.on('game:pass', code => {
     const room = rooms.getRoom(code);
     if (!room) return;
@@ -88,25 +97,12 @@ io.on('connection', socket => {
     sendRoom(room);
   });
 
-  socket.on('restartGame', ({ roomCode }) => {
-    const room = roomManager.getRoom(roomCode);
+  socket.on('disconnect', () => {
+    const room = rooms.findPlayerRoom(socket.id);
     if (!room) return;
-
-    // 1. Remettre le statut en attente (ou relancer direct)
-    room.status = 'waiting'; // ou 'playing' si vous régénérez directement la grille
-    room.winner = null;
-    room.clue = null;
-    room.history = [];
-
-    // 2. Régénérer un nouveau plateau de cartes
-    room.board = generateNewBoard(); // Votre fonction de génération de cartes
-
-    // 3. Informer tous les joueurs de la room
-    io.to(roomCode).emit('gameRestarted', room);
+    rooms.removePlayer(room, socket.id);
+    if (rooms.getRoom(room.code)) sendRoom(room);
   });
-
 });
-
-
 
 server.listen(port, () => console.log(`MyMiniGames disponible sur http://localhost:${port}`));

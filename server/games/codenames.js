@@ -194,6 +194,7 @@ const cardPool = [
   ['Chauve', 'https://api.iconify.design/noto:man-light-skin-tone-bald.svg'],
 ];
 
+//games/codenames.js (les items sont déclarés dans le tableau cardPool au dessus)
 function shuffle(items) {
   const array = [...items];
   for (let i = array.length - 1; i > 0; i--) {

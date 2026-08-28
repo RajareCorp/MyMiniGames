@@ -75,4 +75,36 @@ function snapshot(room) {
   };
 }
 
-module.exports = { createRoom, getRoom, findPlayerRoom, addPlayer, setPlayerTeamAndRole, removePlayer, snapshot };
+function randomizeTeams(room) {
+  if (!room) return;
+  const playersArray = [...room.players.values()];
+  
+  // Algorithme de mélange rapide (Fisher-Yates)
+  for (let i = playersArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [playersArray[i], playersArray[j]] = [playersArray[j], playersArray[i]];
+  }
+
+  const half = Math.ceil(playersArray.length / 2);
+
+  playersArray.forEach((player, index) => {
+    const isRed = index < half;
+    player.team = isRed ? 'red' : 'blue';
+    player.role = 'operative'; // Remet tout le monde en agent par défaut
+  });
+
+  // Assigne 1 Maître-Espion par équipe au hasard s'il y a assez de joueurs
+  if (half > 0) playersArray[0].role = 'spymaster';
+  if (playersArray.length > 1) playersArray[half].role = 'spymaster';
+}
+
+module.exports = { 
+  createRoom, 
+  getRoom, 
+  findPlayerRoom, 
+  addPlayer, 
+  setPlayerTeamAndRole, 
+  removePlayer, 
+  snapshot,
+  randomizeTeams
+};
