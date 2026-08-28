@@ -1,0 +1,35 @@
+# Dépendances Node.js
+node_modules/
+jspm_packages/
+
+# Fichiers d'environnement (Mots de passe, clés d'API, ports secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Fichiers système et éditeurs de code
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Builds et fichiers temporaires
+dist/
+build/
+.cache/
+*.tmp
+
+# Fichiers générés par Docker (optionnel)
+.docker/

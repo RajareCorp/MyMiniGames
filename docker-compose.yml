@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  codenames:
+    build: .
+    container_name: codenames-game
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000

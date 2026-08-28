@@ -1,0 +1,18 @@
+{
+  "name": "my-mini-games",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mini-jeux multijoueur avec Codenames Image",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
