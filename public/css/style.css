@@ -510,6 +510,7 @@ h1 em {
 .card.spymaster-preview.assassin {
   border: 2px dashed var(--assassin);
   background: rgba(6, 6, 6, 0.85);
+  color: #ffffff;
 }
 
 /* --- AUTRES ETATS --- */
