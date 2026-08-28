@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 3000
 
 # Commande de démarrage
-CMD ["node", "server.js"]
+CMD ["node", "server/server.js"]
