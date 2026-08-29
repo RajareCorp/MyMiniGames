@@ -533,10 +533,10 @@ h1 em {
   }
 }
 
-/* --- RESPONSIVE --- */
+/* --- RESPONSIVE MOBILE OPTIMISÉ --- */
 @media(max-width: 850px) {
   .shell {
-    padding: 24px 16px;
+    padding: 16px 10px;
   }
   
   .menu-grid, .lobby-grid {
@@ -545,47 +545,245 @@ h1 em {
   
   .game-layout {
     grid-template-columns: 1fr;
-    gap: 28px;
-    padding-top: 20px;
+    gap: 20px;
+    padding-top: 12px;
   }
   
   .sidebar h1 {
-    font-size: 24px;
-    margin-bottom: 16px;
+    font-size: 20px;
+    margin-bottom: 12px;
   }
   
   .board-head {
     align-items: flex-start;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
+    margin-bottom: 12px;
   }
   
   .board-head h2 {
-    font-size: 28px;
+    font-size: 22px;
   }
-  
+
+  /* Grille à 5 colonnes sur mobile pour un plateau compact */
   .cards {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
   }
   
+  /* Ajustement de la carte : carrée et espace maximisé pour l'image */
   .card {
-    font-size: 11px;
+    aspect-ratio: 1 / 1;
+    padding: 4px 2px;
+    font-size: 9px;
+    gap: 2px;
+    line-height: 1.1;
   }
   
-  /* Réduction de la taille de l'image sur écran mobile */
+  /* L'image prend maintenant tout l'espace disponible */
   .card-image-wrapper {
-    width: 30px;
-    height: 30px;
+    width: 100%;
+    height: calc(100% - 16px); /* Laisse juste assez de place pour le texte */
+    max-height: 55px;
+  }
+
+  .card-img {
+    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .card span {
+    font-size: 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .card i {
+    font-size: 7px;
+    bottom: 2px;
   }
   
   .topbar {
-    gap: 12px;
+    gap: 8px;
     flex-wrap: wrap;
+    padding-bottom: 12px;
   }
   
   .brand {
     order: -1;
     width: 100%;
+    font-size: 14px;
   }
+}
+
+/* Menu sonore */
+
+.audio-controls-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.audio-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #1e1e24;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 180px;
+  z-index: 100;
+}
+
+.audio-menu.hidden {
+  display: none;
+}
+
+.audio-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.audio-setting label {
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #a0a0b0;
+}
+
+.audio-setting input[type="range"] {
+  width: 100%;
+  cursor: pointer;
+  accent-color: #ff4757; /* Couleur adaptée au jeu */
+}
+
+/* Host */
+
+/* Conteneur des actions de l'hôte */
+.host-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Espace propre entre les boutons */
+  margin-top: 16px;
+  width: 100%;
+}
+
+/* Alignement et taille uniforme pour tous les boutons de la barre latérale */
+.sidebar button {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  margin: 0; /* Annule les marges indésirables */
+}
+
+/* Header et modal */
+
+/* Alignement du header */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  padding: 8px 12px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+/* Modal Overlay (Fond sombre) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+/* Contenu de la fenêtre */
+.modal-content {
+  background: #1e1e24;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  max-width: 520px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  color: #e0e0e5;
+  padding: 24px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #a0a0b0;
+  font-size: 1.8rem;
+  cursor: pointer;
+  padding: 0 8px;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #fff;
+}
+
+/* Corps du texte */
+.modal-body h3 {
+  font-size: 1rem;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: #ff4757;
+}
+
+.modal-body p {
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.modal-body ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.modal-body li {
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
