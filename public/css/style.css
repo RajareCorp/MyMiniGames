@@ -787,3 +787,106 @@ h1 em {
   font-size: 0.9rem;
   line-height: 1.4;
 }
+
+
+
+
+
+/* Sélecteur de Mode d'affichage */
+.mode-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+.mode-selector select {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background: #222;
+  color: #fff;
+}
+
+/* Boîte de Tchat */
+.chat-box {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.chat-messages {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.chat-msg {
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.chat-msg.red { border-left: 3px solid #ff4d4d; }
+.chat-msg.blue { border-left: 3px solid #4d94ff; }
+.chat-msg small { opacity: 0.6; float: right; font-size: 0.7rem; }
+
+
+.chat-submit-btn {
+  padding: 0.4rem 0.8rem;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-form {
+  display: flex;
+  gap: 0.4rem;
+}
+.chat-form input {
+  flex: 1;
+  padding: 0.4rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #111;
+  color: #fff;
+}
+
+/* Badges de Ping sur la Carte */
+.card {
+  position: relative;
+}
+
+.card-ping-container {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.ping-badge {
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  animation: pingPulse 1.5s infinite alternate;
+}
+.ping-badge.red { background: #e63946; }
+.ping-badge.blue { background: #0077b6; }
+
+@keyframes pingPulse {
+  from { transform: scale(0.95); opacity: 0.8; }
+  to { transform: scale(1.05); opacity: 1; }
+}

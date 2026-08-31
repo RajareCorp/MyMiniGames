@@ -16,17 +16,16 @@
     
     const newState = room.state;
 
-    // Détection des sons selon les événements du plateau
     if (newState) {
-      // 1. Détections de nouvelles cartes révélées
       const currentRevealed = newState.cards.filter(c => c.revealed).length;
       if (oldState && currentRevealed > lastRevealedCount) {
         const newlyRevealedCard = newState.cards.find(c => c.revealed && !oldState.cards.find(oc => oc.id === c.id)?.revealed);
         
         if (newlyRevealedCard) {
+          // CORRECTION : On vérifie si la carte révélée correspond à l'équipe qui était en train de jouer (oldState.turn)
           if (newlyRevealedCard.role === 'assassin') {
             window.gameAudio.playAssassin();
-          } else if (newlyRevealedCard.role === newState.turn) {
+          } else if (newlyRevealedCard.role === oldState.turn) {
             window.gameAudio.playRevealCorrect();
           } else {
             window.gameAudio.playRevealWrong();
@@ -35,12 +34,10 @@
       }
       lastRevealedCount = currentRevealed;
 
-      // 2. Détection des indices donnés
       if (oldState && !oldState.clue && newState.clue) {
         window.gameAudio.playClue();
       }
 
-      // 3. Détection de victoire
       if (oldState && oldState.phase !== 'ended' && newState.phase === 'ended') {
         window.gameAudio.playWin();
       }
@@ -49,6 +46,28 @@
     }
 
     render();
+  });
+
+  window.gameSocket.on('chat:new', msg => {
+    if (!room) return;
+    room.messages = room.messages || [];
+    room.messages.push(msg);
+    
+    window.gameAudio.playChatMessage();
+
+    const chatContainer = document.querySelector('#chat-messages');
+    if (chatContainer) {
+      const msgEl = document.createElement('div');
+      msgEl.className = `chat-msg ${msg.team || 'neutral'}`;
+      msgEl.innerHTML = `<strong>${escapeHtml(msg.sender)}:</strong> ${escapeHtml(msg.text)} <small>${msg.time}</small>`;
+      chatContainer.appendChild(msgEl);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+  });
+
+  window.gameSocket.on('room:error', message => {
+    const error = document.querySelector('#error');
+    if (error) error.textContent = message;
   });
 
   function render() {
@@ -66,6 +85,8 @@
 
     const redPlayers = room.players.filter(p => p.team === 'red');
     const bluePlayers = room.players.filter(p => p.team === 'blue');
+    const displayMode = room.settings?.displayMode || 'both';
+    const messages = room.messages || [];
 
     app.innerHTML = `
       <main class="shell game">
@@ -73,7 +94,6 @@
           <button class="back" id="leave">← Menu</button>
           <div class="brand">CODENAMES <span>IMAGE</span></div>
 
-          <!-- BOUTON RÈGLES -->
           <button id="toggle-rules" class="secondary icon-btn" title="Règles du jeu">❓</button>
           <div class="audio-controls-wrapper">
             <button id="toggle-audio-menu" class="secondary">🎵</button>
@@ -117,10 +137,38 @@
               </div>
             </div>
 
-            <!-- BOUTONS D'ACTION HÔTE -->
+            <!-- CHAT EN DIRECT (BOUTON AVEC FLÈCHE) -->
+            <div class="chat-box">
+              <h3>Tchat d'équipe</h3>
+              <div id="chat-messages" class="chat-messages">
+                ${messages.map(m => `
+                  <div class="chat-msg ${m.team || 'neutral'}">
+                    <strong>${escapeHtml(m.sender)}:</strong> ${escapeHtml(m.text)} <small>${m.time}</small>
+                  </div>
+                `).join('')}
+              </div>
+              <form id="chat-form" class="chat-form">
+                <input id="chat-input" placeholder="Écrire..." maxlength="120" autocomplete="off" required>
+                <button type="submit" class="secondary chat-submit-btn" title="Envoyer">➔</button>
+              </form>
+            </div>
+
+            <!-- BOUTONS & PARAMÈTRES HÔTE -->
             ${isHost ? `
               <div class="host-actions">
-                ${!state || isGameOver ? '<button class="secondary" id="randomize-teams">🎲 Équipes Aléatoires</button>' : ''}
+                <!-- Le menu n'est affiché QUE dans le salon ou une fois la partie terminée -->
+                ${(!state || isGameOver) ? `
+                  <div class="mode-selector">
+                    <label for="display-mode-select">Mode d'affichage :</label>
+                    <select id="display-mode-select">
+                      <option value="both" ${displayMode === 'both' ? 'selected' : ''}>Images + Mots</option>
+                      <option value="images" ${displayMode === 'images' ? 'selected' : ''}>Images Seules</option>
+                      <option value="words" ${displayMode === 'words' ? 'selected' : ''}>Mots Seuls</option>
+                    </select>
+                  </div>
+                  <button class="secondary" id="randomize-teams">🎲 Équipes Aléatoires</button>
+                ` : ''}
+
                 ${!state ? '<button class="primary" id="start">Lancer la partie</button>' : ''}
                 ${isGameOver ? '<button class="primary" id="restart">🔄 Rejouer une partie</button>' : ''}
               </div>
@@ -138,11 +186,11 @@
           </aside>
 
           <section class="board-area">
-            ${state ? renderBoard(state, me) : `<div class="waiting"><span class="pulse">◈</span><h2>En attente du lancement</h2><p>Le maître du salon peut démarrer la partie.</p></div>`}
+            ${state ? renderBoard(state, me, displayMode) : `<div class="waiting"><span class="pulse">◈</span><h2>En attente du lancement</h2><p>Le maître du salon peut démarrer la partie.</p></div>`}
           </section>
         </section>
 
-        <!-- FENÊTRE MODALE DES RÈGLES -->
+        <!-- MODALE DES RÈGLES -->
         <div id="rules-modal" class="modal-overlay hidden">
           <div class="modal-content">
             <div class="modal-header">
@@ -150,35 +198,35 @@
               <button id="close-rules" class="close-btn">&times;</button>
             </div>
             <div class="modal-body">
-              <p><strong>But du jeu :</strong> Faire deviner à votre équipe toutes vos images avant l'équipe adverse, sans jamais cliquer sur l'Assassin.</p>
-              
-              <h3>1. Rôles</h3>
-              <ul>
-                <li><strong>Maître-Espion :</strong> Voit la couleur cachée de chaque image. Il doit donner un mot-indice et un chiffre à son équipe.</li>
-                <li><strong>Agents :</strong> Voiement uniquement les images et doivent se concerter pour deviner les bonnes cartes.</li>
-              </ul>
-
-              <h3>2. Le Tour de Jeu</h3>
-              <ul>
-                <li>Le Maître-Espion donne <strong>1 Mot</strong> + <strong>1 Nombre</strong> (ex: <em>"Mer - 2"</em>).</li>
-                <li>Les Agents désignent les cartes une par une.</li>
-                <li><strong> Image de votre couleur :</strong> Vous pouvez continuer à deviner (jusqu'à <code>Nombre + 1</code> essai).</li>
-                <li><strong> Image adverse / Neutre :</strong> Le tour s'arrête immédiatement.</li>
-                <li><strong>Carte noire :</strong> La partie s'arrête et votre équipe perd instantanément !</li>
-              </ul>
+              <p><strong>But du jeu :</strong> Faire deviner à votre équipe toutes vos cartes avant l'équipe adverse, sans jamais cliquer sur l'Assassin.</p>
+              <h3>Pings de réflexion (Agents uniquement)</h3>
+              <p>Faites un <strong>clic droit</strong> sur une carte pour poser ou retirer un marqueur visuel visible par vos coéquipiers et les Maîtres-Espions.</p>
             </div>
           </div>
         </div>
       </main>`;
 
     bindGameEvents(me);
+
+    const chatContainer = document.querySelector('#chat-messages');
+    if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 
-  function renderBoard(state, me) {
+  function renderBoard(state, me, displayMode) {
     const turnName = state.turn === 'red' ? 'Équipe Rouge' : 'Équipe Bleue';
     const isMyTurn = me && me.team === state.turn;
     const canGuess = isMyTurn && me.role === 'operative' && state.clue && state.phase === 'playing';
     const isSpymaster = me && me.role === 'spymaster';
+    const myTeam = me ? me.team : null;
+
+    // RÈGLE DE VISIBILITÉ DES PINGS :
+    // Espion : Voit tout.
+    // Agent : Voit uniquement les pings posés par les joueurs de sa propre équipe.
+    const allPings = room.pings || [];
+    const visiblePings = allPings.filter(p => {
+      if (isSpymaster) return true;
+      return p.team === myTeam;
+    });
 
     return `
       <div class="board-head">
@@ -207,15 +255,28 @@
           const role = card.role || '';
           const isDisabled = !canGuess || isRevealed || state.phase === 'ended';
           const previewClass = (!isRevealed && (isSpymaster || state.phase === 'ended')) ? `spymaster-preview ${role}` : '';
+          
+          const cardPings = visiblePings.filter(p => p.cardId === card.id);
 
           return `
             <button class="card ${isRevealed ? `revealed ${role}` : ''} ${previewClass}" 
                     data-card="${card.id}" 
                     ${isDisabled ? 'disabled' : ''}>
-              <div class="card-image-wrapper">
-                <img src="${card.icon}" alt="${escapeHtml(card.label)}" class="card-img" />
+              
+              <div class="card-ping-container">
+                ${cardPings.map(p => `<span class="ping-badge ${p.team}">📍 ${escapeHtml(p.playerName)}</span>`).join('')}
               </div>
-              <span>${escapeHtml(card.label)}</span>
+
+              ${(displayMode === 'both' || displayMode === 'images') && card.icon ? `
+                <div class="card-image-wrapper">
+                  <img src="${card.icon}" alt="${escapeHtml(card.label)}" class="card-img" />
+                </div>
+              ` : ''}
+
+              ${(displayMode === 'both' || displayMode === 'words') ? `
+                <span>${escapeHtml(card.label)}</span>
+              ` : ''}
+
               ${isRevealed && role ? `<i>${role === 'assassin' ? 'ASSASSIN' : role.toUpperCase()}</i>` : ''}
             </button>`;
         }).join('')}
@@ -236,27 +297,14 @@
       render(); 
     });
 
-    // Gestion de l'affichage de la modale des règles
     const rulesBtn = document.querySelector('#toggle-rules');
     const rulesModal = document.querySelector('#rules-modal');
     const closeRulesBtn = document.querySelector('#close-rules');
 
-    rulesBtn?.addEventListener('click', () => {
-      rulesModal?.classList.remove('hidden');
-    });
+    rulesBtn?.addEventListener('click', () => rulesModal?.classList.remove('hidden'));
+    closeRulesBtn?.addEventListener('click', () => rulesModal?.classList.add('hidden'));
+    rulesModal?.addEventListener('click', (e) => { if (e.target === rulesModal) rulesModal.classList.add('hidden'); });
 
-    closeRulesBtn?.addEventListener('click', () => {
-      rulesModal?.classList.add('hidden');
-    });
-
-    // Fermer en cliquant sur le fond noir
-    rulesModal?.addEventListener('click', (e) => {
-      if (e.target === rulesModal) {
-        rulesModal.classList.add('hidden');
-      }
-    });
-
-    // Ouvrir / Fermer le menu sonore
     const audioBtn = document.querySelector('#toggle-audio-menu');
     const audioMenu = document.querySelector('#audio-menu');
     
@@ -265,26 +313,23 @@
       audioMenu?.classList.toggle('hidden');
     });
 
-    // Fermer le menu si on clique ailleurs sur la page
-    document.addEventListener('click', () => {
-      audioMenu?.classList.add('hidden');
+    document.addEventListener('click', () => audioMenu?.classList.add('hidden'));
+    audioMenu?.addEventListener('click', (e) => e.stopPropagation());
+
+    document.querySelector('#music-slider')?.addEventListener('input', (e) => window.gameAudio.setMusicVolume(e.target.value));
+    document.querySelector('#sfx-slider')?.addEventListener('input', (e) => window.gameAudio.setSfxVolume(e.target.value));
+
+    document.querySelector('#display-mode-select')?.addEventListener('change', (e) => {
+      emit('settings:update', { code: room.code, displayMode: e.target.value });
     });
 
-    audioMenu?.addEventListener('click', (e) => {
-      e.stopPropagation(); // Évite la fermeture au clic à l'intérieur du menu
-    });
-
-    // Écouteurs pour les sliders de volume
-    document.querySelector('#music-slider')?.addEventListener('input', (e) => {
-      window.gameAudio.setMusicVolume(e.target.value);
-    });
-
-    document.querySelector('#sfx-slider')?.addEventListener('input', (e) => {
-      window.gameAudio.setSfxVolume(e.target.value);
-    });
-
-    document.querySelector('#toggle-music')?.addEventListener('click', () => {
-      window.gameAudio.toggleMusic();
+    document.querySelector('#chat-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.querySelector('#chat-input');
+      if (input && input.value.trim()) {
+        emit('chat:message', { code: room.code, message: input.value });
+        input.value = '';
+      }
     });
 
     document.querySelector('#start')?.addEventListener('click', () => emit('game:start', room.code));
@@ -301,10 +346,22 @@
       });
     });
 
+    // Écouteurs sur les cartes : Clic gauche (Deviner) & Clic droit (Ping)
     document.querySelectorAll('[data-card]').forEach(card => {
       card.addEventListener('click', () => {
-        window.gameAudio.playCardClick();
-        emit('game:reveal', { code: room.code, cardId: card.dataset.card });
+        if (!card.hasAttribute('disabled')) {
+          window.gameAudio.playCardClick();
+          emit('game:reveal', { code: room.code, cardId: card.dataset.card });
+        }
+      });
+
+      // Seuls les AGENTS peuvent utiliser le clic droit pour basculer un ping
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        if (me && me.role === 'operative') {
+          window.gameAudio.playPingToggle();
+          emit('card:ping', { code: room.code, cardId: card.dataset.card });
+        }
       });
     });
 
@@ -318,26 +375,10 @@
     });
 
     document.querySelector('#pass-btn')?.addEventListener('click', () => {
+      window.gameAudio.playPassTurn();
       emit('game:pass', room.code);
     });
-
-    document.querySelectorAll('[data-card]').forEach(card => {
-      card.addEventListener('click', () => {
-        emit('game:reveal', { code: room.code, cardId: card.dataset.card });
-      });
-    });
   }
-
-  window.gameSocket.on('room:update', updatedRoom => {
-    room = updatedRoom;
-    isHost = room.hostId === window.gameSocket.id();
-    render();
-  });
-
-  window.gameSocket.on('room:error', message => {
-    const error = document.querySelector('#error');
-    if (error) error.textContent = message;
-  });
 
   render();
 })();

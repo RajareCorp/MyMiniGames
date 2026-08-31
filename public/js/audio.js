@@ -1,7 +1,6 @@
 window.gameAudio = (() => {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-  // Niveaux de volume par défaut (de 0.0 à 1.0)
   let musicVolume = 0.15;
   let sfxVolume = 0.5;
 
@@ -11,7 +10,7 @@ window.gameAudio = (() => {
 
   function playTone(freq, duration, type = 'sine', baseVolume = 0.1) {
     if (ctx.state === 'suspended') ctx.resume();
-    if (sfxVolume <= 0) return; // Ne joue rien si le volume SFX est à 0
+    if (sfxVolume <= 0) return;
 
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -19,7 +18,6 @@ window.gameAudio = (() => {
     osc.type = type;
     osc.frequency.setValueAtTime(freq, ctx.currentTime);
     
-    // Le volume final prend en compte le volume global des SFX
     const finalVolume = baseVolume * sfxVolume;
     gain.gain.setValueAtTime(finalVolume, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
@@ -32,7 +30,6 @@ window.gameAudio = (() => {
   }
 
   return {
-    // Gestion du volume Musique (0.0 à 1.0)
     setMusicVolume: (val) => {
       musicVolume = parseFloat(val);
       bgMusic.volume = musicVolume;
@@ -44,12 +41,10 @@ window.gameAudio = (() => {
       }
     },
 
-    // Gestion du volume Effets Sonores (0.0 à 1.0)
     setSfxVolume: (val) => {
       sfxVolume = parseFloat(val);
     },
 
-    // Getters pour initialiser l'interface
     getMusicVolume: () => musicVolume,
     getSfxVolume: () => sfxVolume,
 
@@ -69,6 +64,10 @@ window.gameAudio = (() => {
       [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
         setTimeout(() => playTone(freq, 0.2, 'triangle', 0.2), i * 120);
       });
-    }
+    },
+    // NOUVEAUX SONS
+    playPingToggle: () => playTone(440, 0.05, 'sine', 0.12),
+    playChatMessage: () => playTone(750, 0.06, 'triangle', 0.1),
+    playPassTurn: () => playTone(330, 0.12, 'sine', 0.15)
   };
 })();
