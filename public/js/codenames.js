@@ -22,7 +22,6 @@
         const newlyRevealedCard = newState.cards.find(c => c.revealed && !oldState.cards.find(oc => oc.id === c.id)?.revealed);
         
         if (newlyRevealedCard) {
-          // CORRECTION : On vérifie si la carte révélée correspond à l'équipe qui était en train de jouer (oldState.turn)
           if (newlyRevealedCard.role === 'assassin') {
             window.gameAudio.playAssassin();
           } else if (newlyRevealedCard.role === oldState.turn) {
@@ -77,27 +76,25 @@
       return;
     }
 
-    const state = room.state;
-    const me = room.players.find(p => p.id === window.gameSocket.id());
-    const isMyTurn = state && me && me.team === state.turn;
-    const canGiveClue = state && isMyTurn && me.role === 'spymaster' && state.phase === 'playing' && !state.clue;
-    const isGameOver = state && state.phase === 'ended';
+    // 1. Installe l'ossature HTML une seule fois si elle n'est pas déjà dans le DOM
+    if (!document.querySelector('.shell.game')) {
+      initGameLayout();
+      bindStaticEvents();
+    }
 
-    const redPlayers = room.players.filter(p => p.team === 'red');
-    const bluePlayers = room.players.filter(p => p.team === 'blue');
-    const displayMode = room.settings?.displayMode || 'both';
-    const messages = room.messages || [];
+    // 2. Met à jour uniquement les zones dynamiques (SANS toucher aux champs de texte en cours de frappe)
+    updateDynamicViews();
+  }
 
+  function initGameLayout() {
     app.innerHTML = `
       <main class="shell game">
         <header class="topbar">
           <button class="back" id="leave">← Menu</button>
           <div class="brand">CODENAMES <span>IMAGE</span></div>
-
           <button id="toggle-rules" class="secondary icon-btn" title="Règles du jeu">❓</button>
           <div class="audio-controls-wrapper">
             <button id="toggle-audio-menu" class="secondary">🎵</button>
-            
             <div id="audio-menu" class="audio-menu hidden">
               <div class="audio-setting">
                 <label for="music-slider">Musique</label>
@@ -109,85 +106,33 @@
               </div>
             </div>
           </div>
-          <div class="room-code">SALON <strong>${room.code}</strong></div>
+          <div class="room-code">SALON <strong id="topbar-code"></strong></div>
         </header>
 
         <section class="game-layout">
           <aside class="sidebar">
-            <p class="eyebrow">SALON ${room.code}</p>
+            <p class="eyebrow" id="sidebar-code"></p>
             <h1>Sélecteur d'équipe</h1>
             
-            <div class="teams-container">
-              <div class="team-box red">
-                <h3>Équipe Rouge (${redPlayers.length})</h3>
-                ${redPlayers.map(p => `<div class="player-tag">${escapeHtml(p.name)} <i>${p.role === 'spymaster' ? 'ESPION' : 'AGENT'}</i></div>`).join('')}
-                <div class="team-actions">
-                  <button class="btn-team red" data-team="red" data-role="operative">Rejoindre Agent</button>
-                  <button class="btn-team red" data-team="red" data-role="spymaster">Rejoindre Espion</button>
-                </div>
-              </div>
+            <div id="teams-container" class="teams-container"></div>
 
-              <div class="team-box blue">
-                <h3>Équipe Bleue (${bluePlayers.length})</h3>
-                ${bluePlayers.map(p => `<div class="player-tag">${escapeHtml(p.name)} <i>${p.role === 'spymaster' ? 'ESPION' : 'AGENT'}</i></div>`).join('')}
-                <div class="team-actions">
-                  <button class="btn-team blue" data-team="blue" data-role="operative">Rejoindre Agent</button>
-                  <button class="btn-team blue" data-team="blue" data-role="spymaster">Rejoindre Espion</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- CHAT EN DIRECT (BOUTON AVEC FLÈCHE) -->
+            <!-- CHAT EN DIRECT (Conservé tel quel entre les rendus) -->
             <div class="chat-box">
               <h3>Tchat d'équipe</h3>
-              <div id="chat-messages" class="chat-messages">
-                ${messages.map(m => `
-                  <div class="chat-msg ${m.team || 'neutral'}">
-                    <strong>${escapeHtml(m.sender)}:</strong> ${escapeHtml(m.text)} <small>${m.time}</small>
-                  </div>
-                `).join('')}
-              </div>
+              <div id="chat-messages" class="chat-messages"></div>
               <form id="chat-form" class="chat-form">
                 <input id="chat-input" placeholder="Écrire..." maxlength="120" autocomplete="off" required>
                 <button type="submit" class="secondary chat-submit-btn" title="Envoyer">➔</button>
               </form>
             </div>
 
-            <!-- BOUTONS & PARAMÈTRES HÔTE -->
-            ${isHost ? `
-              <div class="host-actions">
-                <!-- Le menu n'est affiché QUE dans le salon ou une fois la partie terminée -->
-                ${(!state || isGameOver) ? `
-                  <div class="mode-selector">
-                    <label for="display-mode-select">Mode d'affichage :</label>
-                    <select id="display-mode-select">
-                      <option value="both" ${displayMode === 'both' ? 'selected' : ''}>Images + Mots</option>
-                      <option value="images" ${displayMode === 'images' ? 'selected' : ''}>Images Seules</option>
-                      <option value="words" ${displayMode === 'words' ? 'selected' : ''}>Mots Seuls</option>
-                    </select>
-                  </div>
-                  <button class="secondary" id="randomize-teams">🎲 Équipes Aléatoires</button>
-                ` : ''}
-
-                ${!state ? '<button class="primary" id="start">Lancer la partie</button>' : ''}
-                ${isGameOver ? '<button class="primary" id="restart">🔄 Rejouer une partie</button>' : ''}
-              </div>
-            ` : ''}
-
-            ${canGiveClue ? `
-              <form id="clue-form" class="clue-form">
-                <label>Votre indice</label>
-                <input id="clue" maxlength="40" placeholder="Ex : Voyage" required>
-                <label>Nombre de cartes</label>
-                <input id="count" type="number" min="1" max="8" value="2" required>
-                <button class="primary">Donner l'indice</button>
-              </form>
-            ` : ''}
+            <!-- BOUTONS HÔTE & FORMULAIRE INDICE -->
+            <div id="host-actions-container"></div>
+            <div id="clue-form-container"></div>
           </aside>
 
-          <section class="board-area">
-            ${state ? renderBoard(state, me, displayMode) : `<div class="waiting"><span class="pulse">◈</span><h2>En attente du lancement</h2><p>Le maître du salon peut démarrer la partie.</p></div>`}
-          </section>
+          <!-- PLATEAU DE JEU -->
+          <section id="board-area" class="board-area"></section>
         </section>
 
         <!-- MODALE DES RÈGLES -->
@@ -205,11 +150,112 @@
           </div>
         </div>
       </main>`;
+  }
 
-    bindGameEvents(me);
+  function updateDynamicViews() {
+    const state = room.state;
+    const me = room.players.find(p => p.id === window.gameSocket.id());
+    const displayMode = room.settings?.displayMode || 'both';
+    const isGameOver = state && state.phase === 'ended';
+    const redPlayers = room.players.filter(p => p.team === 'red');
+    const bluePlayers = room.players.filter(p => p.team === 'blue');
 
-    const chatContainer = document.querySelector('#chat-messages');
-    if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+    // Mise à jour des codes du salon
+    document.querySelector('#topbar-code').textContent = room.code;
+    document.querySelector('#sidebar-code').textContent = `SALON ${room.code}`;
+
+    // 1. Équipes
+    document.querySelector('#teams-container').innerHTML = `
+      <div class="team-box red">
+        <h3>Équipe Rouge (${redPlayers.length})</h3>
+        ${redPlayers.map(p => `<div class="player-tag">${escapeHtml(p.name)} <i>${p.role === 'spymaster' ? 'ESPION' : 'AGENT'}</i></div>`).join('')}
+        <div class="team-actions">
+          <button class="btn-team red" data-team="red" data-role="operative">Rejoindre Agent</button>
+          <button class="btn-team red" data-team="red" data-role="spymaster">Rejoindre Espion</button>
+        </div>
+      </div>
+      <div class="team-box blue">
+        <h3>Équipe Bleue (${bluePlayers.length})</h3>
+        ${bluePlayers.map(p => `<div class="player-tag">${escapeHtml(p.name)} <i>${p.role === 'spymaster' ? 'ESPION' : 'AGENT'}</i></div>`).join('')}
+        <div class="team-actions">
+          <button class="btn-team blue" data-team="blue" data-role="operative">Rejoindre Agent</button>
+          <button class="btn-team blue" data-team="blue" data-role="spymaster">Rejoindre Espion</button>
+        </div>
+      </div>`;
+
+    document.querySelectorAll('.btn-team').forEach(btn => {
+      btn.onclick = () => {
+        emit('player:selectTeam', { code: room.code, team: btn.dataset.team, role: btn.dataset.role });
+      };
+    });
+
+    // 2. Actions Hôte
+    const hostContainer = document.querySelector('#host-actions-container');
+    if (isHost) {
+      hostContainer.innerHTML = `
+        <div class="host-actions">
+          ${(!state || isGameOver) ? `
+            <div class="mode-selector">
+              <label for="display-mode-select">Mode d'affichage :</label>
+              <select id="display-mode-select">
+                <option value="both" ${displayMode === 'both' ? 'selected' : ''}>Images + Mots</option>
+                <option value="images" ${displayMode === 'images' ? 'selected' : ''}>Images Seules</option>
+                <option value="words" ${displayMode === 'words' ? 'selected' : ''}>Mots Seuls</option>
+              </select>
+            </div>
+            <button class="secondary" id="randomize-teams">🎲 Équipes Aléatoires</button>
+          ` : ''}
+          ${!state ? '<button class="primary" id="start">Lancer la partie</button>' : ''}
+          ${isGameOver ? '<button class="primary" id="restart">🔄 Rejouer une partie</button>' : ''}
+        </div>`;
+
+      document.querySelector('#display-mode-select')?.addEventListener('change', e => {
+        emit('settings:update', { code: room.code, displayMode: e.target.value });
+      });
+      document.querySelector('#randomize-teams')?.addEventListener('click', () => emit('teams:randomize', room.code));
+      document.querySelector('#start')?.addEventListener('click', () => emit('game:start', room.code));
+      document.querySelector('#restart')?.addEventListener('click', () => emit('game:start', room.code));
+    } else {
+      hostContainer.innerHTML = '';
+    }
+
+    // 3. Formulaire Indice (Crée uniquement s'il n'existe pas encore)
+    const isMyTurn = state && me && me.team === state.turn;
+    const canGiveClue = state && isMyTurn && me.role === 'spymaster' && state.phase === 'playing' && !state.clue;
+    const clueContainer = document.querySelector('#clue-form-container');
+
+    if (canGiveClue) {
+      if (!document.querySelector('#clue-form')) {
+        clueContainer.innerHTML = `
+          <form id="clue-form" class="clue-form">
+            <label>Votre indice</label>
+            <input id="clue" maxlength="40" placeholder="Ex : Voyage" required>
+            <label>Nombre de cartes</label>
+            <input id="count" type="number" min="1" max="8" value="2" required>
+            <button class="primary">Donner l'indice</button>
+          </form>`;
+
+        document.querySelector('#clue-form').onsubmit = event => {
+          event.preventDefault();
+          emit('game:clue', {
+            code: room.code,
+            clue: document.querySelector('#clue').value,
+            count: Number(document.querySelector('#count').value)
+          });
+        };
+      }
+    } else {
+      clueContainer.innerHTML = '';
+    }
+
+    // 4. Plateau de jeu
+    const boardArea = document.querySelector('#board-area');
+    if (state) {
+      boardArea.innerHTML = renderBoard(state, me, displayMode);
+      bindBoardEvents(me);
+    } else {
+      boardArea.innerHTML = `<div class="waiting"><span class="pulse">◈</span><h2>En attente du lancement</h2><p>Le maître du salon peut démarrer la partie.</p></div>`;
+    }
   }
 
   function renderBoard(state, me, displayMode) {
@@ -219,14 +265,8 @@
     const isSpymaster = me && me.role === 'spymaster';
     const myTeam = me ? me.team : null;
 
-    // RÈGLE DE VISIBILITÉ DES PINGS :
-    // Espion : Voit tout.
-    // Agent : Voit uniquement les pings posés par les joueurs de sa propre équipe.
     const allPings = room.pings || [];
-    const visiblePings = allPings.filter(p => {
-      if (isSpymaster) return true;
-      return p.team === myTeam;
-    });
+    const visiblePings = allPings.filter(p => isSpymaster || p.team === myTeam);
 
     return `
       <div class="board-head">
@@ -244,7 +284,7 @@
         <div class="clue">
           <span>INDICE</span>
           <strong>${escapeHtml(state.clue)}</strong>
-          <small>${state.guessesLeft-1} choix restants + 1 Bonus</small>
+          <small>${state.guessesLeft - 1} choix restants + 1 Bonus</small>
           ${canGuess ? '<button id="pass-btn" class="secondary pass-btn">Finir le tour</button>' : ''}
         </div>
       ` : '<div class="clue muted">En attente de l\'indice du Maître-Espion...</div>'}
@@ -255,7 +295,6 @@
           const role = card.role || '';
           const isDisabled = !canGuess || isRevealed || state.phase === 'ended';
           const previewClass = (!isRevealed && (isSpymaster || state.phase === 'ended')) ? `spymaster-preview ${role}` : '';
-          
           const cardPings = visiblePings.filter(p => p.cardId === card.id);
 
           return `
@@ -283,14 +322,34 @@
       </div>`;
   }
 
-  function showLobby() {
-    app.innerHTML = `<main class="shell lobby"><button class="back" id="home">← Retour</button><p class="eyebrow">CODENAMES IMAGE</p><h1>Rejoindre la table</h1><p class="lead">Créez un salon ou entrez le code partagé par votre équipe.</p><section class="lobby-grid"><form id="create-form"><h2>Créer un salon</h2><input id="create-name" placeholder="Votre pseudo" maxlength="20" required><button class="primary">Créer le salon</button></form><form id="join-form"><h2>Rejoindre un salon</h2><input id="join-name" placeholder="Votre pseudo" maxlength="20" required><input id="join-code" placeholder="CODE DU SALON" maxlength="4" required><button class="secondary">Rejoindre</button></form></section><p id="error" class="error"></p></main>`;
-    document.querySelector('#home').onclick = render;
-    document.querySelector('#create-form').onsubmit = event => { event.preventDefault(); emit('room:create', { name: document.querySelector('#create-name').value }); };
-    document.querySelector('#join-form').onsubmit = event => { event.preventDefault(); emit('room:join', { name: document.querySelector('#join-name').value, code: document.querySelector('#join-code').value }); };
+  function bindBoardEvents(me) {
+    document.querySelectorAll('[data-card]').forEach(card => {
+      card.onclick = () => {
+        if (!card.hasAttribute('disabled')) {
+          window.gameAudio.playCardClick();
+          emit('game:reveal', { code: room.code, cardId: card.dataset.card });
+        }
+      };
+
+      card.oncontextmenu = e => {
+        e.preventDefault();
+        if (me && me.role === 'operative') {
+          window.gameAudio.playPingToggle();
+          emit('card:ping', { code: room.code, cardId: card.dataset.card });
+        }
+      };
+    });
+
+    const passBtn = document.querySelector('#pass-btn');
+    if (passBtn) {
+      passBtn.onclick = () => {
+        window.gameAudio.playPassTurn();
+        emit('game:pass', room.code);
+      };
+    }
   }
 
-  function bindGameEvents(me) {
+  function bindStaticEvents() {
     document.querySelector('#leave')?.addEventListener('click', () => { 
       if (room) emit('room:leave', room.code);
       room = null; 
@@ -303,27 +362,23 @@
 
     rulesBtn?.addEventListener('click', () => rulesModal?.classList.remove('hidden'));
     closeRulesBtn?.addEventListener('click', () => rulesModal?.classList.add('hidden'));
-    rulesModal?.addEventListener('click', (e) => { if (e.target === rulesModal) rulesModal.classList.add('hidden'); });
+    rulesModal?.addEventListener('click', e => { if (e.target === rulesModal) rulesModal.classList.add('hidden'); });
 
     const audioBtn = document.querySelector('#toggle-audio-menu');
     const audioMenu = document.querySelector('#audio-menu');
     
-    audioBtn?.addEventListener('click', (e) => {
+    audioBtn?.addEventListener('click', e => {
       e.stopPropagation();
       audioMenu?.classList.toggle('hidden');
     });
 
     document.addEventListener('click', () => audioMenu?.classList.add('hidden'));
-    audioMenu?.addEventListener('click', (e) => e.stopPropagation());
+    audioMenu?.addEventListener('click', e => e.stopPropagation());
 
-    document.querySelector('#music-slider')?.addEventListener('input', (e) => window.gameAudio.setMusicVolume(e.target.value));
-    document.querySelector('#sfx-slider')?.addEventListener('input', (e) => window.gameAudio.setSfxVolume(e.target.value));
+    document.querySelector('#music-slider')?.addEventListener('input', e => window.gameAudio.setMusicVolume(e.target.value));
+    document.querySelector('#sfx-slider')?.addEventListener('input', e => window.gameAudio.setSfxVolume(e.target.value));
 
-    document.querySelector('#display-mode-select')?.addEventListener('change', (e) => {
-      emit('settings:update', { code: room.code, displayMode: e.target.value });
-    });
-
-    document.querySelector('#chat-form')?.addEventListener('submit', (e) => {
+    document.querySelector('#chat-form')?.addEventListener('submit', e => {
       e.preventDefault();
       const input = document.querySelector('#chat-input');
       if (input && input.value.trim()) {
@@ -331,53 +386,32 @@
         input.value = '';
       }
     });
+  }
 
-    document.querySelector('#start')?.addEventListener('click', () => emit('game:start', room.code));
-    document.querySelector('#restart')?.addEventListener('click', () => emit('game:start', room.code));
-    document.querySelector('#randomize-teams')?.addEventListener('click', () => emit('teams:randomize', room.code));
+  function showLobby() {
+    // Récupération du pseudo enregistré (s'il existe)
+    const savedName = localStorage.getItem('codenames_username') || '';
 
-    document.querySelectorAll('.btn-team').forEach(btn => {
-      btn.addEventListener('click', () => {
-        emit('player:selectTeam', {
-          code: room.code,
-          team: btn.dataset.team,
-          role: btn.dataset.role
-        });
-      });
-    });
+    app.innerHTML = `<main class="shell lobby"><button class="back" id="home">← Retour</button><p class="eyebrow">CODENAMES IMAGE</p><h1>Rejoindre la table</h1><p class="lead">Créez un salon ou entrez le code partagé par votre équipe.</p><section class="lobby-grid"><form id="create-form"><h2>Créer un salon</h2><input id="create-name" placeholder="Votre pseudo" maxlength="20" value="${escapeHtml(savedName)}" required><button class="primary">Créer le salon</button></form><form id="join-form"><h2>Rejoindre un salon</h2><input id="join-name" placeholder="Votre pseudo" maxlength="20" value="${escapeHtml(savedName)}" required><input id="join-code" placeholder="CODE DU SALON" maxlength="4" required><button class="secondary">Rejoindre</button></form></section><p id="error" class="error"></p></main>`;
+    
+    document.querySelector('#home').onclick = render;
 
-    // Écouteurs sur les cartes : Clic gauche (Deviner) & Clic droit (Ping)
-    document.querySelectorAll('[data-card]').forEach(card => {
-      card.addEventListener('click', () => {
-        if (!card.hasAttribute('disabled')) {
-          window.gameAudio.playCardClick();
-          emit('game:reveal', { code: room.code, cardId: card.dataset.card });
-        }
-      });
+    // Sauvegarde du pseudo lors de la création
+    document.querySelector('#create-form').onsubmit = event => { 
+      event.preventDefault(); 
+      const name = document.querySelector('#create-name').value.trim();
+      if (name) localStorage.setItem('codenames_username', name);
+      emit('room:create', { name }); 
+    };
 
-      // Seuls les AGENTS peuvent utiliser le clic droit pour basculer un ping
-      card.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        if (me && me.role === 'operative') {
-          window.gameAudio.playPingToggle();
-          emit('card:ping', { code: room.code, cardId: card.dataset.card });
-        }
-      });
-    });
-
-    document.querySelector('#clue-form')?.addEventListener('submit', event => {
-      event.preventDefault();
-      emit('game:clue', {
-        code: room.code,
-        clue: document.querySelector('#clue').value,
-        count: Number(document.querySelector('#count').value)
-      });
-    });
-
-    document.querySelector('#pass-btn')?.addEventListener('click', () => {
-      window.gameAudio.playPassTurn();
-      emit('game:pass', room.code);
-    });
+    // Sauvegarde du pseudo lors de la jonction
+    document.querySelector('#join-form').onsubmit = event => { 
+      event.preventDefault(); 
+      const name = document.querySelector('#join-name').value.trim();
+      const code = document.querySelector('#join-code').value.trim();
+      if (name) localStorage.setItem('codenames_username', name);
+      emit('room:join', { name, code }); 
+    };
   }
 
   render();

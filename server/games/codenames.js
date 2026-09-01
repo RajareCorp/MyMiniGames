@@ -26,7 +26,6 @@ const cardPool = [
   ['Sang ', 'https://api.iconify.design/noto:drop-of-blood.svg'],
   ['Lotus', 'https://api.iconify.design/noto:lotus.svg'],
   ['Corail', 'https://api.iconify.design/noto:coral.svg'],
-  ['Cactus', 'https://api.iconify.design/noto:cactus.svg'],
   ['Bouquet', 'https://api.iconify.design/noto:bouquet.svg'],
   ['Nid', 'https://api.iconify.design/noto:empty-nest.svg'],
 
@@ -225,8 +224,8 @@ const cardPool = [
   ['Couple gay', 'https://api.iconify.design/noto:couple-with-heart-man-man.svg'],
   ['Couple lesbienne', 'https://api.iconify.design/noto:couple-with-heart-woman-woman.svg'],
   ['Baver', 'https://api.iconify.design/noto:drooling-face.svg'],
-  ['Famille', 'https://api.iconify.design/noto:family-adult-child.svg'],
-  ['Famille', 'https://api.iconify.design/noto:family-man-girl.svg'],
+  ['Adulte et garçon', 'https://api.iconify.design/noto:family-adult-child.svg'],
+  ['Adulte et fille', 'https://api.iconify.design/noto:family-man-girl.svg'],
   ['Femelle', 'https://api.iconify.design/noto:female-sign.svg'],
   ['Male', 'https://api.iconify.design/noto:male-sign.svg'],
   ['Pied', 'https://api.iconify.design/noto:foot-light-skin-tone.svg'],
