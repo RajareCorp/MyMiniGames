@@ -1,0 +1,111 @@
+/* --- Styles spécifiques pour la Bataille Navale --- */
+
+.battleship-board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.board-head {
+  text-align: center;
+}
+
+.battleship-grid-container,
+.battleship-duo-grids {
+  display: flex;
+  gap: 50px;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.grid-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.grid-box h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #ecf0f1;
+}
+
+/* Grille 10x10 */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(10, 32px);
+  grid-template-rows: repeat(10, 32px);
+  gap: 2px;
+  background-color: #2c3e50;
+  border: 3px solid #2c3e50;
+  border-radius: 4px;
+}
+
+/* Cases */
+.grid .cell {
+  background-color: #ecf0f1;
+  border: 1px solid #dcdde1;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.grid .cell:hover {
+  background-color: #bdc3c7;
+}
+
+/* États des cases */
+.grid .cell.ship {
+  background-color: #3498db; 
+}
+
+.grid .cell.preview {
+  background-color: #5dade2; 
+  opacity: 0.7;
+}
+
+.grid .cell.preview-invalid {
+  background-color: #e74c3c; 
+  opacity: 0.7;
+}
+
+.grid .cell.hit {
+  background-color: #e74c3c !important; 
+}
+
+.grid .cell.miss {
+  background-color: #95a5a6 !important; 
+}
+
+/* Panneau de contrôle et statuts */
+.placement-controls {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+.status-badge.ready {
+  background-color: #2ecc71;
+  color: white;
+}
+.status-badge.waiting {
+  background-color: #f1c40f;
+  color: #2c3e50;
+}

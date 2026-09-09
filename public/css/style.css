@@ -24,7 +24,7 @@ body {
   font-family: 'DM Sans', sans-serif;
 }
 
-button, input {
+button, input, select {
   font: inherit;
 }
 
@@ -43,8 +43,8 @@ button {
 
 /* --- HOME & LOBBY --- */
 .home {
-  background: radial-gradient(circle at 85% 10%, #d8f06b 0 7%, transparent 7.2%),
-              radial-gradient(circle at 10% 90%, #72b8d4 0 10%, transparent 10.2%);
+  background: radial-gradient(circle at 85% 10%, var(--lime) 0 7%, transparent 7.2%),
+              radial-gradient(circle at 10% 90%, var(--blue) 0 10%, transparent 10.2%);
 }
 
 .eyebrow {
@@ -453,7 +453,6 @@ h1 em {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  /* Optionnel : garantit que l'image ne déborde pas du bouton */
   pointer-events: none; 
 }
 
@@ -533,94 +532,7 @@ h1 em {
   }
 }
 
-/* --- RESPONSIVE MOBILE OPTIMISÉ --- */
-@media(max-width: 850px) {
-  .shell {
-    padding: 16px 10px;
-  }
-  
-  .menu-grid, .lobby-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .game-layout {
-    grid-template-columns: 1fr;
-    gap: 20px;
-    padding-top: 12px;
-  }
-  
-  .sidebar h1 {
-    font-size: 20px;
-    margin-bottom: 12px;
-  }
-  
-  .board-head {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  
-  .board-head h2 {
-    font-size: 22px;
-  }
-
-  /* Grille à 5 colonnes sur mobile pour un plateau compact */
-  .cards {
-    grid-template-columns: repeat(5, 1fr);
-    gap: 6px;
-  }
-  
-  /* Ajustement de la carte : carrée et espace maximisé pour l'image */
-  .card {
-    aspect-ratio: 1 / 1;
-    padding: 4px 2px;
-    font-size: 9px;
-    gap: 2px;
-    line-height: 1.1;
-  }
-  
-  /* L'image prend maintenant tout l'espace disponible */
-  .card-image-wrapper {
-    width: 100%;
-    height: calc(100% - 16px); /* Laisse juste assez de place pour le texte */
-    max-height: 55px;
-  }
-
-  .card-img {
-    object-fit: contain;
-    max-width: 100%;
-    max-height: 100%;
-  }
-
-  .card span {
-    font-size: 9px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-  }
-
-  .card i {
-    font-size: 7px;
-    bottom: 2px;
-  }
-  
-  .topbar {
-    gap: 8px;
-    flex-wrap: wrap;
-    padding-bottom: 12px;
-  }
-  
-  .brand {
-    order: -1;
-    width: 100%;
-    font-size: 14px;
-  }
-}
-
-/* Menu sonore */
-
+/* --- MENU SONORE --- */
 .audio-controls-wrapper {
   position: relative;
   display: inline-block;
@@ -640,6 +552,7 @@ h1 em {
   gap: 12px;
   min-width: 180px;
   z-index: 100;
+  color: #e0e0e5;
 }
 
 .audio-menu.hidden {
@@ -663,32 +576,27 @@ h1 em {
 .audio-setting input[type="range"] {
   width: 100%;
   cursor: pointer;
-  accent-color: #ff4757; /* Couleur adaptée au jeu */
+  accent-color: var(--coral);
 }
 
-/* Host */
-
-/* Conteneur des actions de l'hôte */
+/* --- HOST & SIDEBAR ACTIONS --- */
 .host-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px; /* Espace propre entre les boutons */
+  gap: 10px;
   margin-top: 16px;
   width: 100%;
 }
 
-/* Alignement et taille uniforme pour tous les boutons de la barre latérale */
 .sidebar button {
   width: 100%;
   box-sizing: border-box;
   padding: 10px 14px;
   font-size: 0.9rem;
-  margin: 0; /* Annule les marges indésirables */
+  margin: 0;
 }
 
-/* Header et modal */
-
-/* Alignement du header */
+/* --- HEADER & MODAL --- */
 .header-actions {
   display: flex;
   align-items: center;
@@ -701,7 +609,6 @@ h1 em {
   line-height: 1;
 }
 
-/* Modal Overlay (Fond sombre) */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -722,7 +629,6 @@ h1 em {
   display: none;
 }
 
-/* Contenu de la fenêtre */
 .modal-content {
   background: #1e1e24;
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -764,12 +670,11 @@ h1 em {
   color: #fff;
 }
 
-/* Corps du texte */
 .modal-body h3 {
   font-size: 1rem;
   margin-top: 16px;
   margin-bottom: 8px;
-  color: #ff4757;
+  color: var(--coral);
 }
 
 .modal-body p {
@@ -788,28 +693,25 @@ h1 em {
   line-height: 1.4;
 }
 
-
-
-
-
-/* Sélecteur de Mode d'affichage */
+/* --- TCHAT & MODE SELECTOR --- */
 .mode-selector {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
   margin-bottom: 0.5rem;
 }
+
 .mode-selector select {
   padding: 0.5rem;
   border-radius: 6px;
-  border: 1px solid #444;
-  background: #222;
-  color: #fff;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
 }
 
-/* Boîte de Tchat */
 .chat-box {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.75rem;
   display: flex;
@@ -830,12 +732,13 @@ h1 em {
 .chat-msg {
   padding: 0.3rem 0.5rem;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
-.chat-msg.red { border-left: 3px solid #ff4d4d; }
-.chat-msg.blue { border-left: 3px solid #4d94ff; }
-.chat-msg small { opacity: 0.6; float: right; font-size: 0.7rem; }
 
+.chat-msg.red { border-left: 3px solid var(--coral); }
+.chat-msg.blue { border-left: 3px solid var(--blue); }
+.chat-msg small { opacity: 0.6; float: right; font-size: 0.7rem; }
 
 .chat-submit-btn {
   padding: 0.4rem 0.8rem;
@@ -849,20 +752,17 @@ h1 em {
   display: flex;
   gap: 0.4rem;
 }
+
 .chat-form input {
   flex: 1;
   padding: 0.4rem;
   border-radius: 4px;
-  border: 1px solid #444;
-  background: #111;
-  color: #fff;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
 }
 
-/* Badges de Ping sur la Carte */
-.card {
-  position: relative;
-}
-
+/* --- BADGES DE PING SUR LA CARTE --- */
 .card-ping-container {
   position: absolute;
   top: 4px;
@@ -883,10 +783,94 @@ h1 em {
   box-shadow: 0 2px 4px rgba(0,0,0,0.5);
   animation: pingPulse 1.5s infinite alternate;
 }
-.ping-badge.red { background: #e63946; }
-.ping-badge.blue { background: #0077b6; }
+
+.ping-badge.red { background: var(--coral); }
+.ping-badge.blue { background: var(--blue); }
 
 @keyframes pingPulse {
   from { transform: scale(0.95); opacity: 0.8; }
   to { transform: scale(1.05); opacity: 1; }
+}
+
+/* --- RESPONSIVE MOBILE OPTIMISÉ --- */
+@media(max-width: 850px) {
+  .shell {
+    padding: 16px 10px;
+  }
+  
+  .menu-grid, .lobby-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .game-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding-top: 12px;
+  }
+  
+  .sidebar h1 {
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+  
+  .board-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .board-head h2 {
+    font-size: 22px;
+  }
+
+  .cards {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  
+  .card {
+    aspect-ratio: 1 / 1;
+    padding: 4px 2px;
+    font-size: 9px;
+    gap: 2px;
+    line-height: 1.1;
+  }
+  
+  .card-image-wrapper {
+    width: 100%;
+    height: calc(100% - 16px);
+    max-height: 55px;
+  }
+
+  .card-img {
+    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .card span {
+    font-size: 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .card i {
+    font-size: 7px;
+    bottom: 2px;
+  }
+  
+  .topbar {
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-bottom: 12px;
+  }
+  
+  .brand {
+    order: -1;
+    width: 100%;
+    font-size: 14px;
+  }
 }

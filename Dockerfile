@@ -1,20 +1,18 @@
-# Utilisation d'une image Node.js légère
 FROM node:20-alpine
 
-# Création du répertoire de travail
 WORKDIR /app
 
-# Copie des fichiers de dépendances
+# Copie d'abord les fichiers de dépendances pour profiter du cache Docker
 COPY package*.json ./
 
-# Installation des dépendances de production
 RUN npm ci --only=production
 
-# Copie du reste des fichiers du projet
+# Copie du reste du code source
 COPY . .
 
-# Exposition du port (assurez-vous que votre serveur écoute sur ce port)
-EXPOSE 3000
+# Utilisation de l'utilisateur non-root intégré à l'image Node
+USER node
 
-# Commande de démarrage
+EXPOSE 4000
+
 CMD ["node", "server/server.js"]

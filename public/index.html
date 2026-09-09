@@ -1,16 +1,26 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>My Mini Games | Codenames Image</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Mini Games</title>
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/battleship.css">
+  <link rel="icon" href="/favicon.ico">
 </head>
 <body>
   <div id="app"></div>
+
+  <!-- 1. Dépendances globales et utilitaires -->
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/js/audio.js"></script>
   <script src="/js/socket-client.js"></script>
-  <script src="/js/codenames.js"></script>
+  <script src="/js/audio.js"></script>
+
+  <!-- 2. Modules de jeux (Codenames, Bataille navale plus tard...) -->
+  <script src="/js/games/codenames.js"></script>
+  <script src="/js/games/battleship.js"></script>
+
+  <!-- 3. Routeur principal (qui orchestre le tout) -->
+  <script src="/js/router.js" ></script>
 </body>
 </html>

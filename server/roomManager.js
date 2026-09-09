@@ -9,10 +9,10 @@ function makeCode() {
   return code;
 }
 
-function createRoom(game = 'codenames') {
+function createRoom(gameType = 'codenames') {
   const room = {
     code: makeCode(),
-    game,
+    gameType, // Uniformisé avec server.js
     players: new Map(),
     hostId: null,
     state: null
@@ -68,7 +68,7 @@ function removePlayer(room, id) {
 function snapshot(room) {
   return {
     code: room.code,
-    game: room.game,
+    gameType: room.gameType, // Uniformisé avec server.js
     hostId: room.hostId,
     players: [...room.players.values()],
     state: room.state

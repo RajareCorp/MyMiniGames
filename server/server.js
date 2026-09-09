@@ -4,12 +4,17 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const rooms = require('./roomManager');
-const codenames = require('./games/codenames');
+
+// Dictionnaire centralisé des jeux disponibles
+const games = {
+  codenames: require('./games/codenames'),
+  battleship: require('./games/battleship')
+};
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  pingTimeout: 5000,    // Détection rapide des déconnexions (5s)
+  pingTimeout: 5000,
   pingInterval: 10000
 });
 const port = process.env.PORT || 4000;
@@ -18,20 +23,27 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 function sendRoom(room) {
+  const gameModule = games[room.gameType];
+
   for (const player of room.players.values()) {
     io.to(player.id).emit('room:update', {
       ...rooms.snapshot(room),
-      settings: room.settings || { displayMode: 'both' },
+      settings: room.settings || {},
       messages: room.messages || [],
       pings: room.pings || [],
-      state: codenames.publicState(room.state, player)
+      // Utilisation dynamique du module de jeu s'il existe, sinon état brut
+      state: gameModule && gameModule.publicState ? gameModule.publicState(room.state, player.id) : room.state
     });
   }
 }
 
 io.on('connection', socket => {
-  socket.on('room:create', ({ name } = {}) => {
+  // On peut maintenant préciser quel jeu on veut créer (par défaut 'codenames')
+  socket.on('room:create', ({ name, gameType = 'codenames' } = {}) => {
+    if (!games[gameType]) return socket.emit('room:error', 'Jeu inconnu.');
+    
     const room = rooms.createRoom();
+    room.gameType = gameType; // On stocke le type de jeu dans le salon
     room.settings = { displayMode: 'both' };
     room.messages = [];
     rooms.addPlayer(room, socket.id, name);
@@ -49,10 +61,22 @@ io.on('connection', socket => {
 
   socket.on('room:leave', (code) => {
     const room = rooms.getRoom(code);
-    if (!room) return;
+    if (!room) {
+      // Sécurité : si le salon n'existe plus, on force quand même le retour au menu du client
+      socket.emit('room:update', null);
+      return;
+    }
+    
     socket.leave(room.code);
     rooms.removePlayer(room, socket.id);
-    if (rooms.getRoom(room.code)) sendRoom(room);
+    
+    // 1. On prévient le joueur qui part qu'il est retourné à l'accueil
+    socket.emit('room:update', null);
+
+    // 2. On met à jour les joueurs restants dans le salon (s'il existe encore)
+    if (rooms.getRoom(room.code)) {
+      sendRoom(room);
+    }
   });
 
   socket.on('player:selectTeam', ({ code, team, role } = {}) => {
@@ -70,7 +94,6 @@ io.on('connection', socket => {
     sendRoom(room);
   });
 
-  // Modification des paramètres de la partie (Hôte uniquement)
   socket.on('settings:update', ({ code, displayMode } = {}) => {
     const room = rooms.getRoom(code);
     if (!room || room.hostId !== socket.id) return;
@@ -79,7 +102,6 @@ io.on('connection', socket => {
     sendRoom(room);
   });
 
-  // Émission et enregistrement du tchat d'équipe
   socket.on('chat:message', ({ code, message } = {}) => {
     const room = rooms.getRoom(code);
     if (!room || !message || !String(message).trim()) return;
@@ -102,13 +124,11 @@ io.on('connection', socket => {
     io.to(code).emit('chat:new', chatMsg);
   });
 
-  // Basculer un ping (Ajouter / Supprimer) par un Agent
   socket.on('card:ping', ({ code, cardId } = {}) => {
     const room = rooms.getRoom(code);
     if (!room) return;
 
     const player = room.players.get(socket.id);
-    // Seuls les agents d'une équipe peuvent poser des pings
     if (!player || !player.team || player.role !== 'operative') return;
 
     room.pings = room.pings || [];
@@ -119,10 +139,8 @@ io.on('connection', socket => {
     );
 
     if (existingIndex !== -1) {
-      // Retirer le ping s'il existe déjà
       room.pings.splice(existingIndex, 1);
     } else {
-      // Ajouter le ping
       room.pings.push({
         cardId: numericCardId,
         playerId: player.id,
@@ -134,36 +152,64 @@ io.on('connection', socket => {
     sendRoom(room);
   });
 
+  // --- ACTIONS DE JEU DYNAMIQUES ---
+  
   socket.on('game:start', code => {
     const room = rooms.getRoom(code);
     if (!room || room.hostId !== socket.id) return;
-    // Crée une nouvelle partie (sert aussi pour rejouer)
+    const gameModule = games[room.gameType];
+    if (!gameModule) return;
+
     room.pings = [];
-    room.state = codenames.createGame();
+    room.state = gameModule.createGame();
+
+    // Initialisation spécifique pour la Bataille Navale (enregistre les joueurs)
+    if (room.gameType === 'battleship') {
+      for (const pId of room.players.keys()) {
+        gameModule.initPlayer(room.state, pId);
+      }
+    }
+
     sendRoom(room);
   });
 
+  // Actions spécifiques Codenames
   socket.on('game:clue', ({ code, clue, count } = {}) => {
     const room = rooms.getRoom(code);
-    if (!room) return;
+    if (!room || room.gameType !== 'codenames') return;
     const player = room.players.get(socket.id);
-    if (!player || !codenames.giveClue(room.state, player, clue, count)) return;
+    if (!player || !games.codenames.giveClue(room.state, player, clue, count)) return;
     sendRoom(room);
   });
 
   socket.on('game:reveal', ({ code, cardId } = {}) => {
     const room = rooms.getRoom(code);
-    if (!room) return;
+    if (!room || room.gameType !== 'codenames') return;
     const player = room.players.get(socket.id);
-    if (!player || !codenames.revealCard(room.state, player, cardId).ok) return;
+    if (!player || !games.codenames.revealCard(room.state, player, cardId).ok) return;
     sendRoom(room);
   });
 
   socket.on('game:pass', code => {
     const room = rooms.getRoom(code);
-    if (!room) return;
+    if (!room || room.gameType !== 'codenames') return;
     const player = room.players.get(socket.id);
-    if (!player || !codenames.passTurn(room.state, player)) return;
+    if (!player || !games.codenames.passTurn(room.state, player)) return;
+    sendRoom(room);
+  });
+
+  // Actions spécifiques Bataille Navale
+  socket.on('battleship:place', ({ code, ships } = {}) => {
+    const room = rooms.getRoom(code);
+    if (!room || room.gameType !== 'battleship') return;
+    games.battleship.placeShips(room.state, socket.id, ships);
+    sendRoom(room);
+  });
+
+  socket.on('battleship:fire', ({ code, x, y } = {}) => {
+    const room = rooms.getRoom(code);
+    if (!room || room.gameType !== 'battleship') return;
+    games.battleship.fireShot(room.state, socket.id, x, y);
     sendRoom(room);
   });
 

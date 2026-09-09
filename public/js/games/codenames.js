@@ -1,100 +1,77 @@
-// codenames.js
-(() => {
-  const app = document.querySelector('#app');
-  let room = null;
-  let isHost = false;
+// public/js/games/codenames.js
+window.CodenamesGame = (() => {
+  let lastRevealedCount = 0;
 
   const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
   const emit = (event, payload) => window.gameSocket.emit(event, payload);
 
-  let lastRevealedCount = 0;
-
-  window.gameSocket.on('room:update', updatedRoom => {
-    const oldState = room?.state;
-    room = updatedRoom;
-    isHost = room.hostId === window.gameSocket.id();
-    
-    const newState = room.state;
-
-    if (newState) {
-      const currentRevealed = newState.cards.filter(c => c.revealed).length;
-      if (oldState && currentRevealed > lastRevealedCount) {
-        const newlyRevealedCard = newState.cards.find(c => c.revealed && !oldState.cards.find(oc => oc.id === c.id)?.revealed);
-        
-        if (newlyRevealedCard) {
-          if (newlyRevealedCard.role === 'assassin') {
-            window.gameAudio.playAssassin();
-          } else if (newlyRevealedCard.role === oldState.turn) {
-            window.gameAudio.playRevealCorrect();
-          } else {
-            window.gameAudio.playRevealWrong();
-          }
-        }
-      }
-      lastRevealedCount = currentRevealed;
-
-      if (oldState && !oldState.clue && newState.clue) {
-        window.gameAudio.playClue();
-      }
-
-      if (oldState && oldState.phase !== 'ended' && newState.phase === 'ended') {
-        window.gameAudio.playWin();
-      }
-    } else {
+  function handleAudioTriggers(state, oldState) {
+    if (!state) {
       lastRevealedCount = 0;
-    }
-
-    render();
-  });
-
-  window.gameSocket.on('chat:new', msg => {
-    if (!room) return;
-    room.messages = room.messages || [];
-    room.messages.push(msg);
-    
-    window.gameAudio.playChatMessage();
-
-    const chatContainer = document.querySelector('#chat-messages');
-    if (chatContainer) {
-      const msgEl = document.createElement('div');
-      msgEl.className = `chat-msg ${msg.team || 'neutral'}`;
-      msgEl.innerHTML = `<strong>${escapeHtml(msg.sender)}:</strong> ${escapeHtml(msg.text)} <small>${msg.time}</small>`;
-      chatContainer.appendChild(msgEl);
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-  });
-
-  window.gameSocket.on('room:error', message => {
-    const error = document.querySelector('#error');
-    if (error) error.textContent = message;
-  });
-
-  function render() {
-    if (!room) {
-      app.innerHTML = `<main class="shell home"><p class="eyebrow">MY MINI GAMES</p><h1>Des images. Des associations.<br><em>Une équipe.</em></h1><p class="lead">Choisissez un jeu et invitez vos proches autour d'une partie instantanée.</p><section class="menu-grid"><article class="game-tile active"><span class="tile-icon">◈</span><div><h2>Codenames Image</h2><p>Faites deviner les bons symboles sans tomber sur l'assassin.</p></div><button id="choose-game">Jouer</button></article><article class="game-tile locked"><span class="tile-icon">✦</span><div><h2>Bientôt disponible</h2><p>De nouveaux mini-jeux arrivent dans la collection.</p></div><span class="tag">EN DEVELOPPEMENT</span></article></section></main>`;
-      document.querySelector('#choose-game').onclick = showLobby;
       return;
     }
 
-    // 1. Installe l'ossature HTML une seule fois si elle n'est pas déjà dans le DOM
-    if (!document.querySelector('.shell.game')) {
-      initGameLayout();
-      bindStaticEvents();
+    const currentRevealed = state.cards.filter(c => c.revealed).length;
+    if (oldState && currentRevealed > lastRevealedCount) {
+      const newlyRevealedCard = state.cards.find(c => c.revealed && !oldState.cards.find(oc => oc.id === c.id)?.revealed);
+      
+      if (newlyRevealedCard) {
+        if (newlyRevealedCard.role === 'assassin') {
+          window.gameAudio.playAssassin();
+        } else if (newlyRevealedCard.role === oldState.turn) {
+          window.gameAudio.playRevealCorrect();
+        } else {
+          window.gameAudio.playRevealWrong();
+        }
+      }
+    }
+    lastRevealedCount = currentRevealed;
+
+    if (oldState && !oldState.clue && state.clue) {
+      window.gameAudio.playClue();
     }
 
-    // 2. Met à jour uniquement les zones dynamiques (SANS toucher aux champs de texte en cours de frappe)
-    updateDynamicViews();
+    if (oldState && oldState.phase !== 'ended' && state.phase === 'ended') {
+      window.gameAudio.playWin();
+    }
   }
 
-  function initGameLayout() {
-    app.innerHTML = `
+  function render(room, appContainer) {
+    const state = room.state;
+    const isHost = room.hostId === window.gameSocket.id();
+    const me = room.players.find(p => p.id === window.gameSocket.id());
+    const displayMode = room.settings?.displayMode || 'both';
+    const isGameOver = state && state.phase === 'ended';
+    const redPlayers = room.players.filter(p => p.team === 'red');
+    const bluePlayers = room.players.filter(p => p.team === 'blue');
+
+    // 1. Installe l'ossature HTML une seule fois si elle n'est pas déjà dans le DOM
+    if (!document.querySelector('.shell.game')) {
+      appContainer.innerHTML = getGameLayout(room);
+      bindStaticEvents(room);
+    }
+
+    // Gestion propre et directe du bouton Quitter/Menu à chaque rendu
+    const leaveBtn = document.querySelector('#leave');
+    if (leaveBtn) {
+      leaveBtn.onclick = () => {
+        if (room) emit('room:leave', room.code);
+      };
+    }
+
+    // 2. Met à jour les zones dynamiques
+    updateDynamicViews(room, state, me, isHost, displayMode, isGameOver, redPlayers, bluePlayers);
+  }
+
+  function getGameLayout(room) {
+    return `
       <main class="shell game">
         <header class="topbar">
           <button class="back" id="leave">← Menu</button>
           <div class="brand">CODENAMES <span>IMAGE</span></div>
           <button id="toggle-rules" class="secondary icon-btn" title="Règles du jeu">❓</button>
           <div class="audio-controls-wrapper">
-            <button id="toggle-audio-menu" class="secondary">🎵</button>
+            <button id="toggle-audio-menu" class="secondary icon-btn" title="Audio">🎵</button>
             <div id="audio-menu" class="audio-menu hidden">
               <div class="audio-setting">
                 <label for="music-slider">Musique</label>
@@ -116,7 +93,6 @@
             
             <div id="teams-container" class="teams-container"></div>
 
-            <!-- CHAT EN DIRECT (Conservé tel quel entre les rendus) -->
             <div class="chat-box">
               <h3>Tchat d'équipe</h3>
               <div id="chat-messages" class="chat-messages"></div>
@@ -126,16 +102,13 @@
               </form>
             </div>
 
-            <!-- BOUTONS HÔTE & FORMULAIRE INDICE -->
             <div id="host-actions-container"></div>
             <div id="clue-form-container"></div>
           </aside>
 
-          <!-- PLATEAU DE JEU -->
           <section id="board-area" class="board-area"></section>
         </section>
 
-        <!-- MODALE DES RÈGLES -->
         <div id="rules-modal" class="modal-overlay hidden">
           <div class="modal-content">
             <div class="modal-header">
@@ -152,19 +125,11 @@
       </main>`;
   }
 
-  function updateDynamicViews() {
-    const state = room.state;
-    const me = room.players.find(p => p.id === window.gameSocket.id());
-    const displayMode = room.settings?.displayMode || 'both';
-    const isGameOver = state && state.phase === 'ended';
-    const redPlayers = room.players.filter(p => p.team === 'red');
-    const bluePlayers = room.players.filter(p => p.team === 'blue');
-
-    // Mise à jour des codes du salon
+  function updateDynamicViews(room, state, me, isHost, displayMode, isGameOver, redPlayers, bluePlayers) {
     document.querySelector('#topbar-code').textContent = room.code;
     document.querySelector('#sidebar-code').textContent = `SALON ${room.code}`;
 
-    // 1. Équipes
+    // Équipes
     document.querySelector('#teams-container').innerHTML = `
       <div class="team-box red">
         <h3>Équipe Rouge (${redPlayers.length})</h3>
@@ -189,7 +154,7 @@
       };
     });
 
-    // 2. Actions Hôte
+    // Actions Hôte
     const hostContainer = document.querySelector('#host-actions-container');
     if (isHost) {
       hostContainer.innerHTML = `
@@ -219,7 +184,7 @@
       hostContainer.innerHTML = '';
     }
 
-    // 3. Formulaire Indice (Crée uniquement s'il n'existe pas encore)
+    // Formulaire Indice
     const isMyTurn = state && me && me.team === state.turn;
     const canGiveClue = state && isMyTurn && me.role === 'spymaster' && state.phase === 'playing' && !state.clue;
     const clueContainer = document.querySelector('#clue-form-container');
@@ -248,17 +213,17 @@
       clueContainer.innerHTML = '';
     }
 
-    // 4. Plateau de jeu
+    // Plateau de jeu
     const boardArea = document.querySelector('#board-area');
     if (state) {
-      boardArea.innerHTML = renderBoard(state, me, displayMode);
-      bindBoardEvents(me);
+      boardArea.innerHTML = renderBoard(room, state, me, displayMode);
+      bindBoardEvents(room, me);
     } else {
       boardArea.innerHTML = `<div class="waiting"><span class="pulse">◈</span><h2>En attente du lancement</h2><p>Le maître du salon peut démarrer la partie.</p></div>`;
     }
   }
 
-  function renderBoard(state, me, displayMode) {
+  function renderBoard(room, state, me, displayMode) {
     const turnName = state.turn === 'red' ? 'Équipe Rouge' : 'Équipe Bleue';
     const isMyTurn = me && me.team === state.turn;
     const canGuess = isMyTurn && me.role === 'operative' && state.clue && state.phase === 'playing';
@@ -322,7 +287,7 @@
       </div>`;
   }
 
-  function bindBoardEvents(me) {
+  function bindBoardEvents(room, me) {
     document.querySelectorAll('[data-card]').forEach(card => {
       card.onclick = () => {
         if (!card.hasAttribute('disabled')) {
@@ -349,13 +314,7 @@
     }
   }
 
-  function bindStaticEvents() {
-    document.querySelector('#leave')?.addEventListener('click', () => { 
-      if (room) emit('room:leave', room.code);
-      room = null; 
-      render(); 
-    });
-
+  function bindStaticEvents(room) {
     const rulesBtn = document.querySelector('#toggle-rules');
     const rulesModal = document.querySelector('#rules-modal');
     const closeRulesBtn = document.querySelector('#close-rules');
@@ -386,33 +345,20 @@
         input.value = '';
       }
     });
+
+    // Écouteur chat en direct
+    window.gameSocket.on('chat:new', msg => {
+      window.gameAudio.playChatMessage();
+      const chatContainer = document.querySelector('#chat-messages');
+      if (chatContainer) {
+        const msgEl = document.createElement('div');
+        msgEl.className = `chat-msg ${msg.team || 'neutral'}`;
+        msgEl.innerHTML = `<strong>${escapeHtml(msg.sender)}:</strong> ${escapeHtml(msg.text)} <small>${msg.time}</small>`;
+        chatContainer.appendChild(msgEl);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    });
   }
 
-  function showLobby() {
-    // Récupération du pseudo enregistré (s'il existe)
-    const savedName = localStorage.getItem('codenames_username') || '';
-
-    app.innerHTML = `<main class="shell lobby"><button class="back" id="home">← Retour</button><p class="eyebrow">CODENAMES IMAGE</p><h1>Rejoindre la table</h1><p class="lead">Créez un salon ou entrez le code partagé par votre équipe.</p><section class="lobby-grid"><form id="create-form"><h2>Créer un salon</h2><input id="create-name" placeholder="Votre pseudo" maxlength="20" value="${escapeHtml(savedName)}" required><button class="primary">Créer le salon</button></form><form id="join-form"><h2>Rejoindre un salon</h2><input id="join-name" placeholder="Votre pseudo" maxlength="20" value="${escapeHtml(savedName)}" required><input id="join-code" placeholder="CODE DU SALON" maxlength="4" required><button class="secondary">Rejoindre</button></form></section><p id="error" class="error"></p></main>`;
-    
-    document.querySelector('#home').onclick = render;
-
-    // Sauvegarde du pseudo lors de la création
-    document.querySelector('#create-form').onsubmit = event => { 
-      event.preventDefault(); 
-      const name = document.querySelector('#create-name').value.trim();
-      if (name) localStorage.setItem('codenames_username', name);
-      emit('room:create', { name }); 
-    };
-
-    // Sauvegarde du pseudo lors de la jonction
-    document.querySelector('#join-form').onsubmit = event => { 
-      event.preventDefault(); 
-      const name = document.querySelector('#join-name').value.trim();
-      const code = document.querySelector('#join-code').value.trim();
-      if (name) localStorage.setItem('codenames_username', name);
-      emit('room:join', { name, code }); 
-    };
-  }
-
-  render();
+  return { render };
 })();
