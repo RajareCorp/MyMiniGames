@@ -32,7 +32,7 @@ function sendRoom(room) {
       messages: room.messages || [],
       pings: room.pings || [],
       // Utilisation dynamique du module de jeu s'il existe, sinon état brut
-      state: gameModule && gameModule.publicState ? gameModule.publicState(room.state, player.id) : room.state
+      state: gameModule && gameModule.publicState ? gameModule.publicState(room.state, player) : room.state
     });
   }
 }
