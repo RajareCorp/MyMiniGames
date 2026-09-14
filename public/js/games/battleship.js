@@ -1,10 +1,23 @@
 // public/js/games/battleship.js
 window.BattleshipGame = (() => {
   const BOAT_SIZES = [5, 4, 3, 3, 2];
+  const BOAT_NAMES = ['Porte-avions', 'Croiseur', 'Contre-torpilleur', 'Sous-marin', 'Torpilleur'];
   let currentBoatIndex = 0;
   let placedBoats = [];
   let isVertical = false;
   let savedAppContainer = null; // Mémorise le conteneur d'origine
+
+  // Sert à détecter les changements de salon / de partie (revanche) pour
+  // réinitialiser le placement local, qui sinon restait figé sur l'ancienne
+  // flotte lors d'une nouvelle partie dans le même salon.
+  let lastRoomCode = null;
+  let lastPhase = null;
+
+  function resetPlacementState() {
+    placedBoats = [];
+    currentBoatIndex = 0;
+    isVertical = false;
+  }
 
   // Système de sons légers via Web Audio API
   const soundSystem = (() => {
@@ -44,6 +57,22 @@ window.BattleshipGame = (() => {
     const state = room.state;
     const isHost = room.hostId === window.gameSocket.id();
     const me = room.players.find(p => p.id === window.gameSocket.id());
+
+    // Nouveau salon : on repart de zéro.
+    if (room.code !== lastRoomCode) {
+      lastRoomCode = room.code;
+      lastPhase = null;
+      resetPlacementState();
+    }
+
+    // Revanche dans le même salon : le serveur repasse en phase "placing"
+    // après une fin de partie ("ended") ou un lancement initial. On ne
+    // réinitialise que lors de cette transition, pas à chaque rendu, pour
+    // ne pas effacer un placement en cours.
+    if (state && state.phase === 'placing' && !state.isReady && lastPhase !== 'placing') {
+      resetPlacementState();
+    }
+    lastPhase = state ? state.phase : null;
 
     if (!document.querySelector('.shell.game')) {
       targetContainer.innerHTML = getGameLayout(room);
@@ -125,6 +154,19 @@ window.BattleshipGame = (() => {
     }
   }
 
+  function renderFleetChecklist() {
+    return `
+      <ul class="fleet-checklist">
+        ${BOAT_SIZES.map((size, i) => {
+          const done = i < currentBoatIndex;
+          const active = i === currentBoatIndex;
+          return `<li class="${done ? 'done' : ''} ${active ? 'active' : ''}">
+            <span class="fleet-dot">${done ? '✓' : size}</span> ${BOAT_NAMES[i]} (${size})
+          </li>`;
+        }).join('')}
+      </ul>`;
+  }
+
   function renderBoard(state, me) {
     if (state.phase === 'placing') {
       const isReady = state.isReady;
@@ -133,8 +175,9 @@ window.BattleshipGame = (() => {
       return `
         <div class="board-head">
           <h2>Placez votre flotte</h2>
-          <p>${isReady ? 'Flotte validée ! En attente de l adversaire...' : `Placez votre navire de <strong>${currentSize} cases</strong>`}</p>
+          <p>${isReady ? "Flotte validée ! En attente de l'adversaire..." : `Placez votre navire de <strong>${currentSize} cases</strong>`}</p>
         </div>
+        ${!isReady ? renderFleetChecklist() : ''}
         ${!isReady ? `
           <div class="placement-controls">
             <button class="secondary" id="toggle-orientation">Rotation : ${isVertical ? 'Vertical ↕' : 'Horizontal ↔'}</button>
@@ -166,21 +209,39 @@ window.BattleshipGame = (() => {
 
     if (state.phase === 'playing' || state.phase === 'ended') {
       const isMyTurn = state.turn === window.gameSocket.id();
+      const iWon = state.winner === window.gameSocket.id();
+      const fleet = state.fleet || { myAlive: 0, myTotal: 0, opponentAlive: 0, opponentTotal: 0 };
+      const mySunk = new Set(state.mySunkShipIds || []);
+      const opponentSunkCells = state.opponentSunkCells || [];
+
+      let headline;
+      if (state.phase === 'ended') {
+        headline = iWon ? 'Victoire ! 🏆' : 'Défaite... 💀';
+        if (state.forfeited) headline += iWon ? ' (adversaire déconnecté)' : '';
+      } else {
+        headline = isMyTurn ? 'À vous de tirer ! 🎯' : "Tour de l'adversaire... ⏳";
+      }
+
       return `
         <div class="board-head">
-          <h2>${state.phase === 'ended' ? (state.winner === window.gameSocket.id() ? 'Victoire ! 🏆' : 'Défaite... 💀') : (isMyTurn ? 'À vous de tirer ! 🎯' : "Tour de l'adversaire... ⏳")}</h2>
+          <h2 class="${isMyTurn && state.phase === 'playing' ? 'my-turn' : ''}">${headline}</h2>
+          <div class="fleet-summary">
+            <span>Votre flotte : ${fleet.myAlive}/${fleet.myTotal} 🚢</span>
+            <span>Flotte adverse : ${fleet.opponentAlive}/${fleet.opponentTotal} 🚢</span>
+          </div>
         </div>
         <div class="battleship-duo-grids">
           <div class="grid-box">
             <h3>Vos Navires</h3>
             <div class="grid">
               ${renderGridCells(10, (x, y) => {
-                const isShip = state.myShips.some(s => s.x === x && s.y === y);
+                const shipCell = state.myShips.find(s => s.x === x && s.y === y);
                 const gotHit = state.opponentShots.some(s => s.x === x && s.y === y && s.hit);
                 const gotMiss = state.opponentShots.some(s => s.x === x && s.y === y && !s.hit);
+                if (gotHit && shipCell && mySunk.has(shipCell.shipId)) return 'sunk';
                 if (gotHit) return 'hit';
                 if (gotMiss) return 'miss';
-                if (isShip) return 'ship';
+                if (shipCell) return 'ship';
                 return '';
               })}
             </div>
@@ -189,6 +250,8 @@ window.BattleshipGame = (() => {
             <h3>Tirs Ennemis</h3>
             <div class="grid" id="target-grid">
               ${renderGridCells(10, (x, y) => {
+                const isSunkCell = opponentSunkCells.some(c => c.x === x && c.y === y);
+                if (isSunkCell) return 'sunk';
                 const shot = state.myShots.find(s => s.x === x && s.y === y);
                 if (shot) return shot.hit ? 'hit' : 'miss';
                 return '';
@@ -309,6 +372,11 @@ window.BattleshipGame = (() => {
 
   function bindStaticEvents(room) {
     document.querySelector('#leave')?.addEventListener('click', () => {
+      const state = room?.state;
+      const gameInProgress = state && (state.phase === 'placing' || state.phase === 'playing');
+      if (gameInProgress && !window.confirm('Quitter maintenant abandonnera la partie en cours. Continuer ?')) {
+        return;
+      }
       soundSystem.play('click');
       if (room) emit('room:leave', room.code);
     });
