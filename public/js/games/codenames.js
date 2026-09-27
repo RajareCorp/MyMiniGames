@@ -94,7 +94,7 @@ window.CodenamesGame = (() => {
             <div id="teams-container" class="teams-container"></div>
 
             <div class="chat-box">
-              <h3>Tchat d'équipe</h3>
+              <h3>Tchat</h3>
               <div id="chat-messages" class="chat-messages"></div>
               <form id="chat-form" class="chat-form">
                 <input id="chat-input" placeholder="Écrire..." maxlength="120" autocomplete="off" required>
@@ -345,6 +345,8 @@ window.CodenamesGame = (() => {
         input.value = '';
       }
     });
+
+    window.gameSocket.off('chat:new');
 
     // Écouteur chat en direct
     window.gameSocket.on('chat:new', msg => {

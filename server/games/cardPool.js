@@ -104,7 +104,7 @@ const cardPool = [
   ['Loupe', 'https://api.iconify.design/noto:magnifying-glass-tilted-left.svg'],
   ['Bouteille', 'https://api.iconify.design/noto:baby-bottle.svg'],
   ['Seringue', 'https://api.iconify.design/noto:syringe.svg'],
-  ['Ache', 'https://api.iconify.design/noto:axe.svg'],
+  ['Hache', 'https://api.iconify.design/noto:axe.svg'],
   ['Ancre', 'https://api.iconify.design/noto:anchor.svg'],
   ['Amphore', 'https://api.iconify.design/noto:amphora.svg'],
   ['Coeur', 'https://api.iconify.design/noto:anatomical-heart.svg'],
